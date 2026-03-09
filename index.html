@@ -1,0 +1,435 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海外アニメファン調査 (Steam/ゲーム化) ダッシュボード</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --accent: #3b82f6;
+        }
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-sub {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        
+        .insights-container {
+            max-width: 1400px;
+            margin: 0 auto 2rem auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .insight-item {
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 6px solid transparent;
+            background-color: var(--card-bg);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+        .insight-go {
+            border-left-color: #10b981;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, var(--card-bg) 100%);
+        }
+        .insight-stop {
+            border-left-color: #ef4444;
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, var(--card-bg) 100%);
+        }
+        .insight-header {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 0.5rem;
+        }
+        .insight-desc {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+        
+        .summary-container {
+            max-width: 1400px;
+            margin: 0 auto 3rem auto;
+            background: linear-gradient(135deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,1) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .summary-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .summary-title::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 1.25rem;
+            background-color: var(--accent);
+            border-radius: 2px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .summary-stat {
+            background-color: rgba(30,41,59,0.6);
+            padding: 1.25rem;
+            border-radius: 12px;
+            border: 1px solid rgba(51,65,85,0.6);
+            backdrop-filter: blur(4px);
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+        }
+        .stat-value {
+            font-size: 1.15rem;
+            font-weight: 500;
+            color: #60a5fa;
+            line-height: 1.4;
+        }
+        
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .dashboard-section {
+            margin-bottom: 4rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .section-title {
+            font-size: 1.5rem;
+            color: #f8fafc;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            padding-left: 1rem;
+            border-left: 4px solid var(--accent);
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+        .opinions-container {
+            max-width: 1400px;
+            margin: 4rem auto 2rem auto;
+            background-color: transparent;
+        }
+        .opinions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .opinion-card {
+            background-color: rgba(30,41,59,0.5);
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-style: italic;
+            color: #cbd5e1;
+            border-left: 4px solid #a78bfa;
+            line-height: 1.6;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+        .card h2 {
+            font-size: 1rem;
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: #cbd5e1;
+            line-height: 1.4;
+            text-align: center;
+            font-weight: 500;
+            min-height: 2.8em;
+        }
+        .chart-container {
+            position: relative;
+            flex-grow: 1;
+            min-height: 300px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chart-analysis {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <h1>海外アニメファン調査 結果分析ダッシュボード</h1>
+    <p class="header-sub">Steamでのゲーム化における有望タイトルおよびユーザー属性調査（全2395件）</p>
+
+    <!-- Executive Summary -->
+    <div class="summary-container" style="margin-bottom: 2rem;">
+        <div class="summary-title" style="color: #60a5fa; font-size: 1.5rem; margin-bottom: 1rem;">🏁 Executive Summary (超要約)</div>
+        <ul style="font-size: 1.1rem; line-height: 1.8; color: #e2e8f0; padding-left: 1.5rem; margin: 0;">
+            <li><strong>PC/Steam市場:</strong> 積極展開を強く推奨（約80%がPCユーザー）</li>
+            <li><strong>マネタイズ:</strong> 買い切り型が最適。過度なガチャは高い反発リスクあり</li>
+            <li><strong>ゲーム体験:</strong> 原作ストーリーの再現性を重視したRPG/ADVが有望</li>
+        </ul>
+    </div>
+    
+    <div class="insights-container">
+        
+        <div class="insight-item insight-go">
+            <div class="insight-header">🟢 GO / 有望: PC/Steam市場での積極展開</div>
+            <div class="insight-desc">最も利用されるプラットフォームがPCであり、Steamの利用頻度も高いため、Steam市場との親和性が極めて高い状態です。</div>
+        </div>
+        
+            <div class="insight-item insight-go">
+                <div class="insight-header">🟢 GO推奨: 買い切り型（Buy-to-play）モデル</div>
+                <div class="insight-desc">「買い切り型」への許容度が最も高く、ガチャ等の課金モデルよりも明確に好まれています。</div>
+            </div>
+            
+            <div class="insight-item insight-stop">
+                <div class="insight-header">🔴 見送り推奨: P2W・過度なガチャ要素の導入</div>
+                <div class="insight-desc">半数近くのユーザーが「過度な課金要素」を最も許容しがたい要素に挙げており、実装は深刻な反発を生むリスクがあります。</div>
+            </div>
+            
+        <div class="insight-item insight-go">
+            <div class="insight-header">🟢 有望: ストーリー重視のRPG/ADV開発</div>
+            <div class="insight-desc">プレイ目的の1位が「ストーリー・物語性」、人気ジャンル1位が「RPG」であることから、ストーリー主導のゲーム体験が強く求められています。</div>
+        </div>
+        
+    </div>
+    
+    <div class="summary-container">
+        <div class="summary-title">全体サマリー（重要指標のハイライト）</div>
+        <div class="summary-grid">
+            <div class="summary-stat">
+                <div class="stat-label">総回答数</div>
+                <div class="stat-value">2395 件</div>
+            </div>
+            <div class="summary-stat">
+                <div class="stat-label">最も利用されるプラットフォーム</div>
+                <div class="stat-value">PC</div>
+            </div>
+            <div class="summary-stat">
+                <div class="stat-label">人気ゲームジャンル Top1</div>
+                <div class="stat-value">RPG</div>
+            </div>
+            <div class="summary-stat">
+                <div class="stat-label">ゲームをプレイする目的 Top1</div>
+                <div class="stat-value">ストーリー・物語性</div>
+            </div>
+            <div class="summary-stat" style="grid-column: span auto; min-width: 250px;">
+                <div class="stat-label">Steamでゲーム化希望の多いIP Top3</div>
+                <div class="stat-value" style="font-size: 1rem; color: #a78bfa;">1. Spy x Family<br>2. Attack on Titan<br>3. Tokyo Ghoul</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="dashboard"></div>
+    
+    <div class="opinions-container"><h2 class="section-title" style="margin-left: -1rem; margin-bottom: 2rem;">ユーザーの生の声（ゲーム化を希望する理由・自由記述）</h2><div class="opinions-grid"><div class="opinion-card">"I love noragami lore so much and if it was adapted into a visual novel I would grind that shit for hours yo"</div><div class="opinion-card">"I like the anime series alot"</div><div class="opinion-card">"Seems fun to fly around like they do in the anime. And fighting titans is cool"</div><div class="opinion-card">"It could be interesting to see a side story about it."</div><div class="opinion-card">"I think the story could make for a good rpg based exploration looter type game"</div><div class="opinion-card">"To play against the whites"</div></div></div>
+
+    <script>
+        const chartData = [{"title": "1. 1\u9031\u9593\u306b\u30b2\u30fc\u30e0\u3067\u904a\u3076\u6642\u9593\u306f\uff1f", "labels": ["10\u6642\u9593\u4ee5\u4e0a", "2-4\u6642\u9593", "4-6\u6642\u9593", "6-8\u6642\u9593", "8-10\u6642\u9593", "2\u6642\u9593\u672a\u6e80", "\u30b2\u30fc\u30e0\u306f\u5168\u304f\u3057\u306a\u3044"], "data": [710, 382, 372, 335, 261, 256, 79], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c10\u6642\u9593\u4ee5\u4e0a\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0429.6%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c2-4\u6642\u9593\u300d(15.9%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 \u30d7\u30ec\u30a4\u30e4\u30fc\u5c64\u306e\u30d7\u30ec\u30a4\u6642\u9593\u306e\u50be\u5411\u304c\u8868\u308c\u3066\u3044\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u30d7\u30ec\u30a4\u50be\u5411"}, {"title": "2. \u30d7\u30ec\u30a4\u3059\u308b\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0\uff08\u8907\u6570\u9078\u629e\u53ef\uff09", "labels": ["PC", "\u30e2\u30d0\u30a4\u30eb\uff08iOS/Android\uff09", "Nintendo Switch", "PlayStation", "Xbox"], "data": [1908, 1113, 595, 566, 186], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300cPC\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0479.7%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u30e2\u30d0\u30a4\u30eb\uff08iOS/Android\uff09\u300d(46.5%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 PC\u3067\u30d7\u30ec\u30a4\u3059\u308b\u30e6\u30fc\u30b6\u30fc\u304c\u591a\u6570\u6d3e\u3067\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u30d7\u30ec\u30a4\u50be\u5411"}, {"title": "2.1 \u6700\u3082\u3088\u304f\u5229\u7528\u3059\u308b\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0", "labels": ["PC", "\u30e2\u30d0\u30a4\u30eb\uff08iOS/Android\uff09", "PlayStation", "Nintendo Switch", "Xbox"], "data": [1558, 342, 222, 131, 63], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300cPC\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0465.1%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u30e2\u30d0\u30a4\u30eb\uff08iOS/Android\uff09\u300d(14.3%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 PC\u3067\u30d7\u30ec\u30a4\u3059\u308b\u30e6\u30fc\u30b6\u30fc\u304c\u591a\u6570\u6d3e\u3067\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u30d7\u30ec\u30a4\u50be\u5411"}, {"title": "3. Steam\u306e\u5229\u7528\u983b\u5ea6\u306f\uff1f", "labels": ["\u307b\u307c\u6bce\u9031", "\u6570\u30f6\u6708\u306b1\u56de", "\u30a2\u30ab\u30a6\u30f3\u30c8\u306f\u3042\u308b\u304c\u6ec5\u591a\u306b\u4f7f\u308f\u306a\u3044", "\u6708\u306b1, 2\u56de", "Steam\u306f\u4f7f\u308f\u306a\u3044"], "data": [738, 614, 389, 335, 240], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u307b\u307c\u6bce\u9031\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0430.8%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u6570\u30f6\u6708\u306b1\u56de\u300d(25.6%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "Steam\u3067\u306e\u5229\u7528\u30fb\u8cfc\u8cb7\u50be\u5411"}, {"title": "4. Steam\u3067\u306e\u30b2\u30fc\u30e0\u8cfc\u5165\u50be\u5411", "labels": ["\u4e3b\u306b\u30bb\u30fc\u30eb\u6642\u306b\u8cb7\u3046", "\u30a6\u30a3\u30c3\u30b7\u30e5\u30ea\u30b9\u30c8\u306b\u5165\u308c\u3066\u5f85\u3064", "Steam\u3067\u30b2\u30fc\u30e0\u306f\u8cb7\u308f\u306a\u3044", "\u30ec\u30d3\u30e5\u30fc\u3092\u898b\u3066\u304b\u3089\u8cb7\u3046", "\u8208\u5473\u304c\u3042\u308c\u3070\u5b9a\u4fa1\u3067\u8cb7\u3046"], "data": [977, 580, 362, 201, 196], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u4e3b\u306b\u30bb\u30fc\u30eb\u6642\u306b\u8cb7\u3046\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0440.8%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u30a6\u30a3\u30c3\u30b7\u30e5\u30ea\u30b9\u30c8\u306b\u5165\u308c\u3066\u5f85\u3064\u300d(24.2%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "Steam\u3067\u306e\u5229\u7528\u30fb\u8cfc\u8cb7\u50be\u5411"}, {"title": "5. Steam\u306e\u30b2\u30fc\u30e0\u3067\u91cd\u8996\u3059\u308b\u6a5f\u80fd\uff08\u8907\u6570\u9078\u629e\u53ef\uff09", "labels": ["\u7279\u306b\u306a\u3057", "\u5b9f\u7e3e", "\u30b3\u30f3\u30c8\u30ed\u30fc\u30e9\u30fc\u5bfe\u5fdc", "Mod\u5bfe\u5fdc", "Steam\u30ef\u30fc\u30af\u30b7\u30e7\u30c3\u30d7\u5bfe\u5fdc", "Steam Deck\u4e92\u63db\u6027"], "data": [881, 829, 628, 514, 346, 223], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u7279\u306b\u306a\u3057\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0436.8%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u5b9f\u7e3e\u300d(34.6%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "Steam\u3067\u306e\u5229\u7528\u30fb\u8cfc\u8cb7\u50be\u5411"}, {"title": "6. \u7279\u306b\u597d\u304d\u306a\u30b2\u30fc\u30e0\u30b8\u30e3\u30f3\u30eb\uff08\u6700\u59273\u3064\uff09", "labels": ["RPG", "\u30a2\u30c9\u30d9\u30f3\u30c1\u30e3\u30fc", "\u30b7\u30e5\u30fc\u30c6\u30a3\u30f3\u30b0", "\u30b9\u30c8\u30e9\u30c6\u30b8\u30fc", "\u30d3\u30b8\u30e5\u30a2\u30eb\u30ce\u30d9\u30eb", "\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3", "\u30ed\u30fc\u30b0\u30e9\u30a4\u30c8", "\u30b5\u30d0\u30a4\u30d0\u30eb", "\u30d1\u30ba\u30eb", "\u683c\u95d8", "\u30db\u30e9\u30fc", "\u30e1\u30c8\u30ed\u30a4\u30c9\u30f4\u30a1\u30cb\u30a2"], "data": [1236, 985, 653, 575, 426, 417, 385, 341, 296, 291, 283, 266], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300cRPG\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0451.6%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u30a2\u30c9\u30d9\u30f3\u30c1\u30e3\u30fc\u300d(41.1%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 \u30b2\u30fc\u30e0\u5316\u3059\u308b\u306b\u3042\u305f\u308a\u3001\u3053\u308c\u3089\u306e\u30b8\u30e3\u30f3\u30eb\u3078\u306e\u671f\u5f85\u5024\u304c\u9ad8\u3044\u3068\u8a00\u3048\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u30d7\u30ec\u30a4\u50be\u5411"}, {"title": "7. \u30b2\u30fc\u30e0\u3092\u30d7\u30ec\u30a4\u3059\u308b\u4e3b\u306a\u76ee\u7684", "labels": ["\u30b9\u30c8\u30fc\u30ea\u30fc\u30fb\u7269\u8a9e\u6027", "\u6ca1\u5165\u611f", "\u30ad\u30e3\u30e9\u30af\u30bf\u30fc\u80b2\u6210\u30fb\u9032\u884c", "\u3084\u308a\u8fbc\u307f\u8981\u7d20", "\u624b\u8efd\u306b\u904a\u3079\u308b\u30fb\u77ed\u6642\u9593\u30d7\u30ec\u30a4", "\u5bfe\u6226\u30fb\u30e9\u30f3\u30ad\u30f3\u30b0"], "data": [1029, 404, 310, 209, 190, 174], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u30b9\u30c8\u30fc\u30ea\u30fc\u30fb\u7269\u8a9e\u6027\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0443.0%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u6ca1\u5165\u611f\u300d(16.9%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 \u30d7\u30ec\u30a4\u30e4\u30fc\u306f\u30b2\u30fc\u30e0\u306b\u5bfe\u3057\u3066\u3053\u306e\u8981\u7d20\u3092\u6700\u3082\u6c42\u3081\u3066\u3044\u308b\u3088\u3046\u3067\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u30d7\u30ec\u30a4\u50be\u5411"}, {"title": "8.5 \u4e0a\u8a18\u306e\u4e2d\u3067\u6700\u3082\u30d7\u30ec\u30a4\u3057\u305f\u3044\u30bf\u30a4\u30c8\u30eb", "labels": ["Spy x Family", "Attack on Titan", "Tokyo Ghoul", "Berserk", "Rascal Does Not Dream of Bunny Girl Senpai", "Dororo", "Noragami", "Akame ga Kill!", "Violet Evergarden", "High School of the Dead", "No Game No Life", "Angel Beats!", "Evangelion", "Code Geass", "One Punch Man", "Vinland Saga", "Psycho Pass", "None", "Dr.Stone", "Tensei slim", "Outlaw Star", "Non Anime games only", "Parasyte", "Made in Abyss", "Cowboy Bebop", "Mob Psycho 100", "D.gray-man", "The Promised Neverland", "Frieren"], "data": [10, 9, 6, 5, 5, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300cSpy x Family\u300d\u3067\u3001\u5168\u4f53\u306e\u7d040.4%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300cAttack on Titan\u300d(0.4%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u5316\u3078\u306e\u8981\u671b"}, {"title": "10. \u30b2\u30fc\u30e0\u306e\u30dc\u30ea\u30e5\u30fc\u30e0\u3068\u4fa1\u683c\u5e2f\u306e\u5e0c\u671b", "labels": ["\u4e2d\u7de8\u30fb\u4e16\u754c\u89b3\u3092\u4f53\u9a13 ($19.99)", "\u9577\u7de8\u30fb\u5927\u30dc\u30ea\u30e5\u30fc\u30e0 ($69.99)", "\u77ed\u7de8\u30fb\u30ea\u30d7\u30ec\u30a4\u6027\u3042\u308a ($9.99)"], "data": [1336, 886, 173], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u4e2d\u7de8\u30fb\u4e16\u754c\u89b3\u3092\u4f53\u9a13 ($19.99)\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0455.8%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u9577\u7de8\u30fb\u5927\u30dc\u30ea\u30e5\u30fc\u30e0 ($69.99)\u300d(37.0%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u5316\u3078\u306e\u8981\u671b"}, {"title": "11. \u539f\u4f5c\u306e\u97f3\u58f0\u30fb\u697d\u66f2\u306e\u53ce\u9332\u306b\u3064\u3044\u3066", "labels": ["\u58f0\u30fb\u66f2\u3069\u3061\u3089\u3082\u5fc5\u9808", "\u697d\u66f2\u306e\u307f\u5fc5\u9808", "\u58f0\u306e\u307f\u5fc5\u9808", "\u3069\u3061\u3089\u3067\u3082\u3088\u3044"], "data": [1689, 239, 236, 231], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u58f0\u30fb\u66f2\u3069\u3061\u3089\u3082\u5fc5\u9808\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0470.5%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u697d\u66f2\u306e\u307f\u5fc5\u9808\u300d(10.0%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 IP\u30b2\u30fc\u30e0\u5316\u306b\u304a\u3051\u308b\u539f\u4f5c\u518d\u73fe\u306e\u91cd\u8981\u6027\u304c\u4f3a\u3048\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u5316\u3078\u306e\u8981\u671b"}, {"title": "12. \u30b2\u30fc\u30e0\u5316\u3067\u6700\u3082\u8a31\u5bb9\u3057\u304c\u305f\u3044\u8981\u7d20", "labels": ["\u904e\u5ea6\u306a\u8ab2\u91d1\u8981\u7d20\uff08P2W\u30fb\u30ac\u30c1\u30e3\u7b49\uff09", "\u5927\u5e45\u306a\u30ad\u30e3\u30e9\u6539\u5909", "\u539f\u4f5c\u30c6\u30fc\u30de\u3068\u306e\u77db\u76fe", "\u30b2\u30fc\u30e0\u30aa\u30ea\u30b8\u30ca\u30eb\u30b7\u30ca\u30ea\u30aa", "\u7279\u306b\u306a\u3057"], "data": [1312, 631, 197, 169, 86], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u904e\u5ea6\u306a\u8ab2\u91d1\u8981\u7d20\uff08P2W\u30fb\u30ac\u30c1\u30e3\u7b49\uff09\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0454.8%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u5927\u5e45\u306a\u30ad\u30e3\u30e9\u6539\u5909\u300d(26.3%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u5316\u3078\u306e\u8981\u671b"}, {"title": "13. \u9078\u629e\u3057\u305f\u30bf\u30a4\u30c8\u30eb\u304cSteam\u3067\u51fa\u305f\u3089\u8cfc\u5165\u3057\u307e\u3059\u304b\uff1f", "labels": ["\u307e\u3042\u8cb7\u3044\u305f\u3044", "\u975e\u5e38\u306b\u8cb7\u3044\u305f\u3044", "\u308f\u304b\u3089\u306a\u3044", "\u3042\u307e\u308a\u8cb7\u3044\u305f\u304f\u306a\u3044", "\u8cb7\u308f\u306a\u3044"], "data": [976, 882, 380, 87, 70], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u307e\u3042\u8cb7\u3044\u305f\u3044\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0440.8%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u975e\u5e38\u306b\u8cb7\u3044\u305f\u3044\u300d(36.8%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u5316\u3078\u306e\u8981\u671b"}, {"title": "14. \u8a31\u5bb9\u3067\u304d\u308b\u30de\u30cd\u30bf\u30a4\u30ba\u30e2\u30c7\u30eb\uff08\u8907\u6570\u9078\u629e\u53ef\uff09", "labels": ["\u8cb7\u3044\u5207\u308a\u578b", "\u6709\u6599DLC\u8ffd\u52a0\u578b", "\u898b\u305f\u76ee\u7cfb\u8ab2\u91d1\u306e\u307f", "\u5b8c\u5168\u7121\u8ab2\u91d1\uff08F2P\uff09", "\u30ac\u30c1\u30e3"], "data": [1689, 1169, 840, 689, 296], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u8cb7\u3044\u5207\u308a\u578b\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0470.5%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u6709\u6599DLC\u8ffd\u52a0\u578b\u300d(48.8%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002 \u30d3\u30b8\u30cd\u30b9\u30e2\u30c7\u30eb\u3092\u691c\u8a0e\u3059\u308b\u4e0a\u3067\u91cd\u8981\u306a\u6307\u6a19\u3067\u3059\u3002", "category": "\u30b2\u30fc\u30e0\u5316\u3078\u306e\u8981\u671b"}, {"title": "15. Have you played any indie games that you were highly satisfied with?", "labels": ["\u306f\u3044", "\u3044\u3044\u3048"], "data": [1458, 937], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u306f\u3044\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0460.9%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u3044\u3044\u3048\u300d(39.1%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u305d\u306e\u4ed6"}, {"title": "\u6027\u5225", "labels": ["\u7537\u6027", "\u5973\u6027", "\u56de\u7b54\u3057\u306a\u3044", "\u30ce\u30f3\u30d0\u30a4\u30ca\u30ea\u30fc"], "data": [1827, 424, 84, 60], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u7537\u6027\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0476.3%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u5973\u6027\u300d(17.7%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30e6\u30fc\u30b6\u30fc\u5c5e\u6027"}, {"title": "\u5e74\u9f62", "labels": ["20-24", "25-29", "16-19", "30-34", "35-39", "Over 40", "Under 16"], "data": [731, 559, 500, 320, 152, 116, 17], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c20-24\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0430.5%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c25-29\u300d(23.3%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30e6\u30fc\u30b6\u30fc\u5c5e\u6027"}, {"title": "\u5c45\u4f4f\u56fd", "labels": ["United States", "Canada", "United Kingdom", "Brazil", "Germany", "India", "Spain", "Poland", "France", "Italy", "Portugal", "Netherlands"], "data": [567, 143, 136, 117, 102, 89, 87, 81, 80, 70, 64, 50], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300cUnited States\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0423.7%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300cCanada\u300d(6.0%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30e6\u30fc\u30b6\u30fc\u5c5e\u6027"}, {"title": "\u8077\u696d", "labels": ["\u5b66\u751f", "\u6b63\u793e\u54e1", "Prefer not to answer", "\u30a2\u30eb\u30d0\u30a4\u30c8\u30fb\u30d1\u30fc\u30c8", "Other", "\u81ea\u55b6\u696d"], "data": [923, 762, 241, 175, 151, 143], "type": "doughnut", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u5b66\u751f\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0438.5%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u6b63\u793e\u54e1\u300d(31.8%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30e6\u30fc\u30b6\u30fc\u5c5e\u6027"}, {"title": "\u5e74\u53ce\u5c64", "labels": ["\u53ce\u5165\u306a\u3057", "\u56de\u7b54\u3057\u306a\u3044", "$5K\u672a\u6e80", "$10K\u301c$25K", "$25K\u301c$50K", "$5K\u301c$10K", "$50K\u301c$75K", "$75K\u301c$100K", "$100K or more"], "data": [548, 540, 367, 298, 239, 191, 118, 52, 42], "type": "bar", "analysis": "\u6700\u3082\u591a\u3044\u56de\u7b54\u306f\u300c\u53ce\u5165\u306a\u3057\u300d\u3067\u3001\u5168\u4f53\u306e\u7d0422.9%\u3092\u5360\u3081\u3066\u3044\u307e\u3059\u3002 \u6b21\u3044\u3067\u300c\u56de\u7b54\u3057\u306a\u3044\u300d(22.5%)\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002", "category": "\u30e6\u30fc\u30b6\u30fc\u5c5e\u6027"}];
+        const dashboard = document.getElementById('dashboard');
+
+        const colors = [
+            'rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(245, 158, 11, 0.8)',
+            'rgba(239, 68, 68, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(236, 72, 153, 0.8)',
+            'rgba(20, 184, 166, 0.8)', 'rgba(249, 115, 22, 0.8)', 'rgba(99, 102, 241, 0.8)',
+            'rgba(168, 85, 247, 0.8)', 'rgba(234, 179, 8, 0.8)', 'rgba(14, 165, 233, 0.8)',
+            'rgba(132, 204, 22, 0.8)', 'rgba(244, 63, 94, 0.8)', 'rgba(217, 70, 239, 0.8)'
+        ];
+        const borderColors = [
+            'rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(245, 158, 11)',
+            'rgb(239, 68, 68)', 'rgb(139, 92, 246)', 'rgb(236, 72, 153)',
+            'rgb(20, 184, 166)', 'rgb(249, 115, 22)', 'rgb(99, 102, 241)',
+            'rgb(168, 85, 247)', 'rgb(234, 179, 8)', 'rgb(14, 165, 233)',
+            'rgb(132, 204, 22)', 'rgb(244, 63, 94)', 'rgb(217, 70, 239)'
+        ];
+
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = '"Noto Sans JP", sans-serif';
+
+        const categories = {};
+        chartData.forEach(item => {
+            if (!categories[item.category]) categories[item.category] = [];
+            categories[item.category].push(item);
+        });
+
+        const order = ["ゲーム化への要望", "ゲームプレイ傾向", "Steamでの利用・購買傾向", "ユーザー属性", "その他"];
+        const sortedCategories = Object.keys(categories).sort((a, b) => {
+            let ia = order.indexOf(a);
+            let ib = order.indexOf(b);
+            if (ia === -1) ia = 99;
+            if (ib === -1) ib = 99;
+            return ia - ib;
+        });
+
+        let globalChartIndex = 0;
+        
+        sortedCategories.forEach(category => {
+            const items = categories[category];
+            
+            const section = document.createElement('div');
+            section.className = 'dashboard-section';
+            
+            const sectionTitle = document.createElement('h2');
+            sectionTitle.className = 'section-title';
+            sectionTitle.textContent = category;
+            section.appendChild(sectionTitle);
+            
+            const grid = document.createElement('div');
+            grid.className = 'dashboard-grid';
+
+            items.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                const title = document.createElement('h2');
+                title.textContent = item.title;
+                card.appendChild(title);
+
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
+                const canvas = document.createElement('canvas');
+                canvas.id = 'chart-' + globalChartIndex;
+                chartContainer.appendChild(canvas);
+                card.appendChild(chartContainer);
+
+                if (item.analysis) {
+                    const analysisNode = document.createElement('div');
+                    analysisNode.className = 'chart-analysis';
+                    analysisNode.textContent = item.analysis;
+                    card.appendChild(analysisNode);
+                }
+
+                grid.appendChild(card);
+
+                const ctx = canvas.getContext('2d');
+            
+            let bgColors = [];
+            let bColors = [];
+            for (let i = 0; i < item.data.length; i++) {
+                bgColors.push(colors[i % colors.length]);
+                bColors.push(borderColors[i % borderColors.length]);
+            }
+
+            let dataset = {
+                data: item.data,
+                backgroundColor: item.type === 'doughnut' ? bgColors : bgColors[0],
+                borderColor: item.type === 'doughnut' ? bColors : bColors[0],
+                borderWidth: 1
+            };
+
+            const maxVal = Math.max(...item.data);
+            const suggestedMax = Math.ceil(maxVal * 1.1);
+
+            let options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: item.type === 'doughnut',
+                        position: 'right',
+                        labels: { color: '#cbd5e1', font: { family: '"Noto Sans JP", sans-serif' } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        bodyFont: { family: '"Noto Sans JP", sans-serif' }
+                    }
+                }
+            };
+            
+            if (item.type === 'bar') {
+                options.scales = {
+                    y: {
+                        beginAtZero: true,
+                        suggestedMax: suggestedMax,
+                        grid: { color: '#334155' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            color: '#94a3b8',
+                            font: { family: '"Noto Sans JP", sans-serif' },
+                            maxRotation: 45,
+                            minRotation: 0,
+                            callback: function(value, index, values) {
+                                let label = item.labels[index];
+                                return label.length > 25 ? label.substring(0, 25) + '...' : label;
+                            }
+                        }
+                    }
+                };
+            }
+
+            new Chart(ctx, {
+                type: item.type,
+                data: {
+                    labels: item.labels,
+                    datasets: [dataset]
+                },
+                options: options
+            });
+            
+            globalChartIndex++;
+            });
+            
+            section.appendChild(grid);
+            dashboard.appendChild(section);
+        });
+    </script>
+</body>
+</html>
