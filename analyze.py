@@ -280,7 +280,7 @@ for i, raw_header in enumerate(headers):
         elif 'ジャンル' in header:
             top = counters[i].most_common(12)
         elif 'タイトル' in header or 'シリーズ' in header:
-            top = counters[i].most_common(15)
+            top = counters[i].most_common(50) # Show more options for Q8
         else:
             continue
     else:
@@ -688,7 +688,7 @@ html_template = """
 </head>
 <body>
     <h1>海外アニメファン調査 結果分析ダッシュボード</h1>
-    <p class="header-sub">Steamでのゲーム化における有望タイトルおよびユーザー属性調査（全REPLACE_TOTAL件）</p>
+    <p class="header-sub">Steamでのゲーム化における有望タイトルおよびユーザー属性調査（全REPLACE_TOTAL件 / 調査実施期間: 2026年2月18日〜2月25日）</p>
 
     <div class="nav-menu">
         <button class="nav-link active" onclick="openTab(event, 'cat-サマリー')">サマリー</button>
@@ -732,10 +732,6 @@ html_template = """
             <div class="summary-stat">
                 <div class="stat-label">ゲームをプレイする目的 Top1</div>
                 <div class="stat-value">REPLACE_TOP_MOTIVATION</div>
-            </div>
-            <div class="summary-stat" style="grid-column: span auto; min-width: 250px;">
-                <div class="stat-label">Steamでゲーム化希望の多いIP Top3</div>
-                <div class="stat-value" style="font-size: 1rem; color: #a78bfa;">REPLACE_TOP_TITLES</div>
             </div>
         </div>
     </div>
@@ -787,6 +783,10 @@ html_template = """
     <div class="dashboard" id="dashboard"></div>
     
     REPLACE_OPINIONS_HTML
+
+    REPLACE_Q8_TABLE
+
+    REPLACE_QUESTIONS_LIST
     
     <div id="indie-wrapper" style="width: 100%; margin-top: 2rem; margin-bottom: 2rem;">
         <h2 class="section-title" style="margin-top: 2rem;">🎮 好きなインディーゲームの傾向 (設問15)</h2>
@@ -967,9 +967,10 @@ html_template = """
             dashboard.appendChild(section);
         });
         
-        // Move opinions and indie breakdown into the first chart tab ("ゲーム化への要望").
+        // Move opinions, indie breakdown, and Q8 table into the chart tab ("ゲーム化への要望").
         const opinionsWrapper = document.getElementById('opinions-wrapper');
         const indieWrapper = document.getElementById('indie-wrapper');
+        const q8TableWrapper = document.getElementById('q8-full-table-wrapper');
         const firstTab = document.getElementById('cat-ゲーム化への要望');
         
         if (indieWrapper && firstTab) {
@@ -977,6 +978,16 @@ html_template = """
         }
         if (opinionsWrapper && firstTab) {
             firstTab.appendChild(opinionsWrapper);
+        }
+        if (q8TableWrapper && firstTab) {
+            firstTab.appendChild(q8TableWrapper);
+        }
+
+        // Move questions list into "その他" tab.
+        const questionsListWrapper = document.getElementById('questions-list-wrapper');
+        const otherTab = document.getElementById('cat-その他');
+        if (questionsListWrapper && otherTab) {
+            otherTab.insertBefore(questionsListWrapper, otherTab.firstChild);
         }
 
         function openTab(evt, tabName) {
@@ -998,6 +1009,161 @@ html_template = """
 </html>
 """
 
+# -- Build Q8 full options table --
+Q8_FIXED_TITLES = [
+    'Attack on Titan', 'Berserk', 'Evangelion', 'Code Geass', 'Made in Abyss',
+    'Spy x Family', 'Vinland Saga', 'Dr.Stone', 'Tokyo Ghoul', 'Cowboy Bebop',
+    'No Game No Life', 'One Punch Man', 'Mob Psycho 100',
+    'Rascal Does Not Dream of Bunny Girl Senpai', 'High School of the Dead',
+    'Akame ga Kill!', 'Psycho Pass', 'Noragami', 'Violet Evergarden',
+    'Parasyte', 'The Promised Neverland', 'Angel Beats!', 'Dororo', 'Kimi no Na wa.'
+]
+
+# Recount Q8 responses from raw CSV using column index 9
+_q8_counter = collections.Counter()
+with open(csv_path, 'r', encoding='utf-8-sig') as _f:
+    _rows = list(csv.reader(_f))
+for _row in _rows[1:]:
+    if len(_row) > 9 and _row[9]:
+        for _part in _row[9].split('\n'):
+            _p = _part.strip()
+            if _p:
+                _q8_counter[_p] += 1
+
+_q8_total_respondents = sum(1 for _row in _rows[1:] if len(_row) > 9 and _row[9])
+_max_votes = max((_q8_counter.get(t, 0) for t in Q8_FIXED_TITLES), default=1)
+
+q8_rows_html = ''
+for rank, title in enumerate(sorted(Q8_FIXED_TITLES, key=lambda t: -_q8_counter.get(t, 0)), 1):
+    votes = _q8_counter.get(title, 0)
+    pct = round(votes / _q8_total_respondents * 100, 1) if _q8_total_respondents > 0 else 0
+    bar_width = round(votes / _max_votes * 100)
+    q8_rows_html += f'''
+        <tr>
+            <td style="padding: 0.55rem 0.75rem; font-weight:600; color:#94a3b8; font-size:0.85rem;">{rank}</td>
+            <td style="padding: 0.55rem 0.75rem; font-size:0.95rem;">{title}</td>
+            <td style="padding: 0.55rem 0.75rem; text-align:right; font-variant-numeric:tabular-nums;">{votes:,}</td>
+            <td style="padding: 0.55rem 0.75rem; text-align:right; color:#94a3b8; font-size:0.9rem;">{pct}%</td>
+            <td style="padding: 0.55rem 1rem; width:200px;">
+                <div style="background:rgba(51,65,85,0.5); border-radius:4px; height:10px; overflow:hidden;">
+                    <div style="background:linear-gradient(90deg,#3b82f6,#a78bfa); height:100%; width:{bar_width}%; border-radius:4px;"></div>
+                </div>
+            </td>
+        </tr>
+    '''
+
+q8_table_html = f'''
+<div id="q8-full-table-wrapper" style="max-width:1400px; margin:3rem auto 2rem auto;">
+    <h2 class="section-title">📋 設問8 全選択肢・回答数一覧（固定選択肢24項目）</h2>
+    <div style="background:var(--card-bg); border-radius:16px; border:1px solid var(--border-color); padding:1.5rem 2rem; box-shadow:0 10px 15px -3px rgba(0,0,0,0.3);">
+        <p style="font-size:0.95rem; color:inherit; margin-bottom:1.25rem; line-height:1.6;">
+            設問8「<em>以下のタイトルのうち、Steamでゲームとしてプレイしたいものはどれですか？（最大3つ）</em>」の固定選択肢24項目すべてと、その選択数を降順で示します。<br>
+            集計対象回答者数: <strong>{_q8_total_respondents:,}件</strong>（設問8に1件以上回答した人）
+        </p>
+        <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-family:inherit; color:inherit;">
+            <thead>
+                <tr style="border-bottom:2px solid var(--border-color); font-size:0.85rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em;">
+                    <th style="padding:0.5rem 0.75rem; text-align:left;">#</th>
+                    <th style="padding:0.5rem 0.75rem; text-align:left;">タイトル</th>
+                    <th style="padding:0.5rem 0.75rem; text-align:right;">票数</th>
+                    <th style="padding:0.5rem 0.75rem; text-align:right;">割合</th>
+                    <th style="padding:0.5rem 1rem;">分布</th>
+                </tr>
+            </thead>
+            <tbody>
+                {q8_rows_html}
+            </tbody>
+        </table>
+        </div>
+        <p style="font-size:0.8rem; color:#64748b; margin-top:1rem;">※ 割合は設問8の回答者数 ({_q8_total_respondents:,}件) を分母として算出。設問8はSteamユーザー向けのため、CSユーザー・非ゲーマー向けの設問8.2/8.4とは母集団が異なります。</p>
+    </div>
+</div>
+'''
+
+# -- Build Questions List HTML --
+questions_list_html = '''
+<div id="questions-list-wrapper" style="max-width:1400px; margin: 0 auto 3rem auto;">
+    <h2 class="section-title">📝 本サーベイの設問一覧</h2>
+    <div style="background:var(--card-bg); border-radius:16px; border:1px solid var(--border-color); padding:2rem; box-shadow:0 10px 15px -3px rgba(0,0,0,0.3);">
+        <p style="font-size:0.95rem; color:#94a3b8; margin-bottom:1.5rem; line-height:1.6;">
+            このダッシュボードの元となったサーベイ（海外アニメファン調査 / 調査実施期間: 2026年2月18日〜2月25日）の全設問を記録します。<br>
+            今後のサーベイ設計の参考資料としてご活用ください。
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:1.5rem;">
+
+            <div>
+                <h3 style="color:#60a5fa; font-size:1rem; margin:0 0 1rem 0; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">🎮 ゲームプレイ傾向</h3>
+                <ol style="color:inherit; line-height:1.9; padding-left:1.5rem; margin:0; font-size:0.95rem;">
+                    <li><strong>Q1.</strong> 1週間にゲームで遊ぶ時間は？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 2時間未満 / 2–4時間 / 4–6時間 / 6–8時間 / 8–10時間 / 10時間以上 / ゲームは全くしない）</span></li>
+                    <li><strong>Q2.</strong> 普段プレイするプラットフォームは？（複数選択可）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: Mobile / Nintendo Switch / PlayStation / Xbox / PC）</span></li>
+                    <li><strong>Q2.1.</strong> 最もよく利用するプラットフォームは？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（Q2の回答から1つ選択）</span></li>
+                    <li><strong>Q6.</strong> 特に好きなゲームジャンルは？（最大3つ）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: Visual Novel / RPG / Shooter / Adventure / Puzzle / Strategy / Simulation / Horror / Metroidvania / Roguelite / Fighting / Survival / 2D Action / PvPvE）</span></li>
+                    <li><strong>Q7.</strong> ゲームをプレイする主な目的は？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: ストーリー・物語性 / 没入感 / キャラクター育成・進行 / 手軽に遊べる / やり込み要素 / 対戦・ランキング）</span></li>
+                </ol>
+            </div>
+
+            <div>
+                <h3 style="color:#60a5fa; font-size:1rem; margin:0 0 1rem 0; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">🛒 Steamでの利用・購買傾向</h3>
+                <ol style="color:inherit; line-height:1.9; padding-left:1.5rem; margin:0; font-size:0.95rem;">
+                    <li><strong>Q3.</strong> Steamの利用頻度は？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: ほぼ毎週 / 月に1,2回 / 数ヶ月に1回 / アカウントはあるが滅多に使わない / Steamは使わない）</span></li>
+                    <li><strong>Q4.</strong> Steamでのゲーム購入傾向は？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 興味があれば定価で買う / 主にセール時に買う / レビューを見てから買う / ウィッシュリストに入れて待つ / Steamでゲームは買わない）</span></li>
+                    <li><strong>Q5.</strong> Steamのゲームで重視する機能は？（複数選択可）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 実績 / Mod対応 / Steamワークショップ対応 / Steam Deck互換性 / コントローラー対応 / 特になし）</span></li>
+                </ol>
+            </div>
+
+            <div>
+                <h3 style="color:#60a5fa; font-size:1rem; margin:0 0 1rem 0; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">🎌 ゲーム化への要望（IPタイトル）</h3>
+                <ol style="color:inherit; line-height:1.9; padding-left:1.5rem; margin:0; font-size:0.95rem;">
+                    <li><strong>Q8.</strong> 【Steamユーザー向け】以下のタイトルのうち、Steamでゲームとしてプレイしたいものはどれですか？（最大3つ）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（固定選択肢24タイトル: Attack on Titan / Berserk / Evangelion / Code Geass / Made in Abyss / Spy x Family / Vinland Saga / Dr.Stone / Tokyo Ghoul / Cowboy Bebop / No Game No Life / One Punch Man / Mob Psycho 100 / Rascal Does Not Dream of Bunny Girl Senpai / High School of the Dead / Akame ga Kill! / Psycho Pass / Noragami / Violet Evergarden / Parasyte / The Promised Neverland / Angel Beats! / Dororo / Kimi no Na wa.）</span></li>
+                    <li><strong>Q8.1.</strong> 【Steamユーザー向け】選択したタイトルのうち、最もプレイしたいタイトルは？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（Q8の回答から1つ選択）</span></li>
+                    <li><strong>Q8.2.</strong> 【非Steam・CS/スマホゲーマー向け】もしSteamでゲームがリリースされるとしたら、プレイしてみたいシリーズは？（最大3つ）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（同上24タイトルから選択）</span></li>
+                    <li><strong>Q8.3.</strong> 【非Steam・CS/スマホゲーマー向け】選択したタイトルのうち、最もプレイしたいタイトルは？</li>
+                    <li><strong>Q8.4.</strong> 【非ゲーマー向け】もしSteamでゲームがリリースされるとしたら、プレイしてみたいシリーズは？（最大3つ）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（同上24タイトルから選択）</span></li>
+                    <li><strong>Q8.5.</strong> 【非ゲーマー向け】選択したタイトルのうち、最もプレイしたいタイトルは？</li>
+                    <li><strong>Q9.</strong> そのタイトルのゲーム化を希望する理由は？（自由記述）</li>
+                    <li><strong>Q10.</strong> ゲームのボリュームと価格帯の希望は？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 短編・リプレイ性あり $9.99 / 中編・世界観を体験 $19.99 / 長編・大ボリューム $69.99）</span></li>
+                    <li><strong>Q11.</strong> ゲーム化における原作の音声・楽曲の収録について<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 声・曲どちらも必須 / 楽曲のみ必須 / 声のみ必須 / どちらでもよい）</span></li>
+                    <li><strong>Q12.</strong> ゲーム化で最も許容しがたい要素は？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 大幅なキャラ改変 / 原作テーマとの矛盾 / ゲームオリジナルシナリオ / 過度な課金要素（P2W・ガチャ等） / 特になし）</span></li>
+                    <li><strong>Q13.</strong> 選択したタイトルがSteamでリリースされたら購入しますか？<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 非常に買いたい / まあ買いたい / わからない / あまり買いたくない / 買わない）</span></li>
+                    <li><strong>Q14.</strong> 許容できるマネタイズモデルは？（複数選択可）<br>
+                        <span style="color:#94a3b8; font-size:0.88rem;">（選択肢: 買い切り型 / 有料DLC追加型 / 見た目系課金のみ / ガチャ / 完全無課金（F2P））</span></li>
+                </ol>
+            </div>
+
+            <div>
+                <h3 style="color:#60a5fa; font-size:1rem; margin:0 0 1rem 0; padding-bottom:0.5rem; border-bottom:1px solid var(--border-color);">👤 ユーザー属性</h3>
+                <ol style="color:inherit; line-height:1.9; padding-left:1.5rem; margin:0; font-size:0.95rem;">
+                    <li><strong>性別</strong>（選択肢: 男性 / 女性 / ノンバイナリー / 回答しない）</li>
+                    <li><strong>年齢</strong></li>
+                    <li><strong>居住国</strong></li>
+                    <li><strong>職業</strong>（選択肢: 学生 / 正社員 / アルバイト・パート / 自営業 / 回答しない）</li>
+                    <li><strong>年収層</strong>（選択肢: 収入なし / $5K未満 / $5K〜$10K / $10K〜$25K / $25K〜$50K / $50K〜$75K / $75K〜$100K）</li>
+                </ol>
+            </div>
+
+        </div>
+    </div>
+</div>
+'''
+
 html_formatted = html_template \
     .replace('REPLACE_TOTAL', str(summary['total'])) \
     .replace('REPLACE_TOP_PLATFORM', str(summary['top_platform'])) \
@@ -1008,6 +1174,8 @@ html_formatted = html_template \
     .replace('REPLACE_TOP_5_HTML', top_5_html) \
     .replace('REPLACE_OTHER_TITLES_HTML', other_titles_html) \
     .replace('REPLACE_OPINIONS_HTML', opinions_html) \
+    .replace('REPLACE_Q8_TABLE', q8_table_html) \
+    .replace('REPLACE_QUESTIONS_LIST', questions_list_html) \
     .replace('{opinions_html}', opinions_html) # Fallback if left in f-string format
 
 
